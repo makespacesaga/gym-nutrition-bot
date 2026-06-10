@@ -158,6 +158,36 @@ export async function findCustomerByNickname(nickname: string): Promise<LineProf
   return data as LineProfile | null
 }
 
+export async function saveWater(lineUserId: string, amountMl: number) {
+  const today = tokyoDateString()
+  const { data: existing } = await supabase
+    .from('line_water_logs')
+    .select('id, amount_ml')
+    .eq('line_user_id', lineUserId)
+    .eq('logged_date', today)
+    .single()
+
+  if (existing) {
+    await supabase.from('line_water_logs')
+      .update({ amount_ml: existing.amount_ml + amountMl })
+      .eq('id', existing.id)
+  } else {
+    await supabase.from('line_water_logs')
+      .insert({ line_user_id: lineUserId, amount_ml: amountMl, logged_date: today })
+  }
+}
+
+export async function getTodayWater(lineUserId: string): Promise<number> {
+  const today = tokyoDateString()
+  const { data } = await supabase
+    .from('line_water_logs')
+    .select('amount_ml')
+    .eq('line_user_id', lineUserId)
+    .eq('logged_date', today)
+    .single()
+  return data ? Number(data.amount_ml) : 0
+}
+
 export async function saveTrainerFeedback(
   customerLineUserId: string,
   trainerLineUserId: string,

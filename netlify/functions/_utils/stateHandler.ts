@@ -1,6 +1,6 @@
 import {
   getOrCreateProfile, updateProfile, saveMealRecord,
-  getTodayMeals, getStreak, saveWeight,
+  getTodayMeals, getStreak, saveWeight, saveWater, getTodayWater,
   getAllCustomers, findCustomerByNickname, saveTrainerFeedback,
 } from './db'
 import { replyMessage, pushMessage, getMessageContent } from './lineApi'
@@ -160,9 +160,28 @@ async function handleCustomer(profile: any, t: string, replyToken: string, userI
     }
   }
 
+  // 水分記録
+  const waterMatch = t.match(/^(?:水分|水)[：:\s　]*(\d+)/)
+  if (waterMatch) {
+    const ml = parseInt(waterMatch[1], 10)
+    if (ml > 0 && ml <= 5000) {
+      await saveWater(userId, ml)
+      const total = await getTodayWater(userId)
+      const remaining = Math.max(0, 2000 - total)
+      await replyMessage(replyToken, [
+        text(
+          `💧 水分 ${ml}ml を記録しました！\n\n` +
+          `今日の合計：${total}ml / 2000ml\n` +
+          (remaining > 0 ? `あと ${remaining}ml で目標達成！` : `🎉 今日の水分目標達成！素晴らしい！`)
+        ),
+      ])
+      return
+    }
+  }
+
   if (/今日|きょう|記録|きろく/.test(t)) {
-    const meals = await getTodayMeals(userId)
-    await replyMessage(replyToken, [todaySummaryFlex(meals, profile)])
+    const [meals, waterMl] = await Promise.all([getTodayMeals(userId), getTodayWater(userId)])
+    await replyMessage(replyToken, [todaySummaryFlex(meals, waterMl, profile)])
     return
   }
 
@@ -347,8 +366,8 @@ export async function handlePostback(userId: string, data: string, replyToken: s
       break
 
     case 'today_summary': {
-      const meals = await getTodayMeals(userId)
-      await replyMessage(replyToken, [todaySummaryFlex(meals, profile)])
+      const [meals, waterMl] = await Promise.all([getTodayMeals(userId), getTodayWater(userId)])
+      await replyMessage(replyToken, [todaySummaryFlex(meals, waterMl, profile)])
       break
     }
 

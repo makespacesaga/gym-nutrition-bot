@@ -49,9 +49,7 @@ export function nutritionFlex(
   const emoji = mealEmoji[mealType] ?? '🍽️'
 
   const dateStr = new Date().toLocaleDateString('ja-JP', {
-    timeZone: 'Asia/Tokyo',
-    month: 'long',
-    day: 'numeric',
+    timeZone: 'Asia/Tokyo', month: 'long', day: 'numeric',
   })
 
   const streakLine = streak > 0
@@ -68,6 +66,28 @@ export function nutritionFlex(
       { type: 'text', text: 'kcal', size: 'xs', color: '#aaaaaa', flex: 1, margin: 'xs' },
     ],
     margin: 'sm',
+  }))
+
+  // 良かった点
+  const goodRows = (analysis.good_points ?? []).map(p => ({
+    type: 'box',
+    layout: 'horizontal',
+    margin: 'sm',
+    contents: [
+      { type: 'text', text: '✅', size: 'sm', flex: 0 },
+      { type: 'text', text: p, size: 'sm', color: '#27AE60', wrap: true, flex: 1, margin: 'sm' },
+    ],
+  }))
+
+  // 改善点
+  const improveRows = (analysis.improvements ?? []).map(p => ({
+    type: 'box',
+    layout: 'horizontal',
+    margin: 'sm',
+    contents: [
+      { type: 'text', text: '📌', size: 'sm', flex: 0 },
+      { type: 'text', text: p, size: 'sm', color: '#E67E22', wrap: true, flex: 1, margin: 'sm' },
+    ],
   }))
 
   return {
@@ -104,6 +124,7 @@ export function nutritionFlex(
           // 食品リスト
           { type: 'box', layout: 'vertical', contents: foodRows },
           { type: 'separator', margin: 'md', color: '#f0f0f0' },
+
           // 合計カロリー
           {
             type: 'box',
@@ -114,6 +135,7 @@ export function nutritionFlex(
               { type: 'text', text: `${analysis.totals.calories} kcal`, size: 'xl', color: '#E84C88', weight: 'bold', align: 'end' },
             ],
           },
+
           // PFC バッジ
           {
             type: 'box',
@@ -127,16 +149,57 @@ export function nutritionFlex(
             ],
           },
           { type: 'separator', margin: 'md', color: '#f0f0f0' },
-          // AI コメント
+
+          // 食事バランス
           {
             type: 'box',
-            layout: 'horizontal',
+            layout: 'vertical',
             margin: 'md',
+            backgroundColor: '#F8F9FA',
+            cornerRadius: 'md',
+            paddingAll: 'md',
             contents: [
-              { type: 'text', text: '💬', size: 'sm', flex: 0 },
-              { type: 'text', text: analysis.comment, size: 'sm', color: '#555555', wrap: true, flex: 1, margin: 'sm' },
+              { type: 'text', text: '🍽️ 食事バランス', size: 'xs', color: '#888888', weight: 'bold' },
+              { type: 'text', text: analysis.meal_balance ?? '', size: 'sm', color: '#444444', wrap: true, margin: 'sm' },
             ],
           },
+
+          // 良かった点
+          {
+            type: 'box',
+            layout: 'vertical',
+            margin: 'md',
+            contents: [
+              { type: 'text', text: '👍 良かった点', size: 'xs', color: '#27AE60', weight: 'bold' },
+              ...goodRows,
+            ],
+          },
+
+          // 改善点
+          {
+            type: 'box',
+            layout: 'vertical',
+            margin: 'md',
+            contents: [
+              { type: 'text', text: '📋 改善点', size: 'xs', color: '#E67E22', weight: 'bold' },
+              ...improveRows,
+            ],
+          },
+
+          // 行動目標
+          {
+            type: 'box',
+            layout: 'vertical',
+            margin: 'md',
+            backgroundColor: '#FFF8E1',
+            cornerRadius: 'md',
+            paddingAll: 'md',
+            contents: [
+              { type: 'text', text: '🎯 次回までの行動目標', size: 'xs', color: '#F39C12', weight: 'bold' },
+              { type: 'text', text: analysis.action_goal ?? '', size: 'sm', color: '#333333', wrap: true, margin: 'sm', weight: 'bold' },
+            ],
+          },
+
           // ストリーク
           {
             type: 'box',
@@ -202,7 +265,7 @@ function pfcBadge(label: string, value: string, textColor: string, bgColor: stri
 }
 
 // ─── 今日の食事サマリー Flex ───────────────────────────
-export function todaySummaryFlex(meals: any[], profile: LineProfile): Msg {
+export function todaySummaryFlex(meals: any[], waterMl: number, profile: LineProfile): Msg {
   const totalCalories = meals.reduce((s, m) => s + Number(m.total_calories), 0)
   const totalProtein  = meals.reduce((s, m) => s + Number(m.total_protein),  0)
   const totalFat      = meals.reduce((s, m) => s + Number(m.total_fat),      0)
@@ -212,7 +275,11 @@ export function todaySummaryFlex(meals: any[], profile: LineProfile): Msg {
 
   const mealEmoji:  Record<string, string> = { breakfast: '🌅', lunch: '☀️', dinner: '🌙', snack: '🍪' }
   const mealLabel:  Record<string, string> = { breakfast: '朝食', lunch: '昼食', dinner: '夕食', snack: '間食' }
-  const dateStr = new Date().toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'long', day: 'numeric', weekday: 'short' })
+  const dateStr = new Date().toLocaleDateString('ja-JP', {
+    timeZone: 'Asia/Tokyo', month: 'long', day: 'numeric', weekday: 'short',
+  })
+
+  const waterPct = Math.min(Math.round((waterMl / 2000) * 100), 100)
 
   const mealRows = meals.map(m => ({
     type: 'box',
@@ -228,11 +295,7 @@ export function todaySummaryFlex(meals: any[], profile: LineProfile): Msg {
   const emptyMsg = [{
     type: 'text',
     text: 'まだ食事が記録されていません\n食事の写真を送ってください📷',
-    size: 'sm',
-    color: '#aaaaaa',
-    align: 'center',
-    wrap: true,
-    margin: 'lg',
+    size: 'sm', color: '#aaaaaa', align: 'center', wrap: true, margin: 'lg',
   }]
 
   return {
@@ -266,39 +329,57 @@ export function todaySummaryFlex(meals: any[], profile: LineProfile): Msg {
               { type: 'text', text: `目標 ${goal}kcal`, size: 'xs', color: '#aaaaaa', gravity: 'bottom' },
             ],
           },
-          // プログレスバー
+          // カロリーバー
           {
-            type: 'box',
-            layout: 'horizontal',
-            height: '8px',
-            margin: 'sm',
-            cornerRadius: 'xxl',
-            backgroundColor: '#FFE0EF',
-            contents: [
-              {
-                type: 'box',
-                layout: 'vertical',
-                width: `${pct}%`,
-                backgroundColor: '#E84C88',
-                cornerRadius: 'xxl',
-                contents: [],
-              },
-            ],
+            type: 'box', layout: 'horizontal', height: '8px', margin: 'sm',
+            cornerRadius: 'xxl', backgroundColor: '#FFE0EF',
+            contents: [{
+              type: 'box', layout: 'vertical', width: `${pct}%`,
+              backgroundColor: '#E84C88', cornerRadius: 'xxl', contents: [],
+            }],
           },
           { type: 'text', text: `${pct}% 達成`, size: 'xs', color: '#E84C88', align: 'end', margin: 'xs' },
+
           // PFC
           {
-            type: 'box',
-            layout: 'horizontal',
-            margin: 'md',
-            spacing: 'sm',
+            type: 'box', layout: 'horizontal', margin: 'md', spacing: 'sm',
             contents: [
               pfcBadge('P タンパク質', `${Math.round(totalProtein)}g`, '#27AE60', '#E8F8EF'),
               pfcBadge('F 脂質', `${Math.round(totalFat)}g`, '#E67E22', '#FEF5E7'),
               pfcBadge('C 炭水化物', `${Math.round(totalCarbs)}g`, '#2980B9', '#EBF5FB'),
             ],
           },
+
+          // 水分量
+          {
+            type: 'box', layout: 'vertical', margin: 'md',
+            backgroundColor: '#EBF5FB', cornerRadius: 'md', paddingAll: 'md',
+            contents: [
+              {
+                type: 'box', layout: 'horizontal',
+                contents: [
+                  { type: 'text', text: '💧 水分量', size: 'sm', color: '#2980B9', weight: 'bold', flex: 1 },
+                  { type: 'text', text: `${waterMl}ml / 2000ml`, size: 'sm', color: '#2980B9', weight: 'bold', align: 'end' },
+                ],
+              },
+              {
+                type: 'box', layout: 'horizontal', height: '6px', margin: 'sm',
+                cornerRadius: 'xxl', backgroundColor: '#AED6F1',
+                contents: [{
+                  type: 'box', layout: 'vertical', width: `${waterPct}%`,
+                  backgroundColor: '#2980B9', cornerRadius: 'xxl', contents: [],
+                }],
+              },
+              {
+                type: 'text',
+                text: waterMl >= 2000 ? '🎉 目標達成！' : `あと ${2000 - waterMl}ml`,
+                size: 'xs', color: '#2980B9', align: 'end', margin: 'xs',
+              },
+            ],
+          },
+
           { type: 'separator', margin: 'md', color: '#f0f0f0' },
+
           // 食事リスト
           ...(meals.length > 0 ? mealRows : emptyMsg),
         ],
@@ -322,7 +403,8 @@ export function helpMsg(isTrainer: boolean): Msg {
   return text(
     `🌸 使い方ガイド\n\n` +
     `📷 写真を送る → 食事をAIが分析・記録\n` +
-    `「今日」→ 今日の食事まとめ\n` +
+    `「水分 500」→ 水分量を記録（ml）\n` +
+    `「今日」→ 今日の食事＋水分まとめ\n` +
     `「進捗」→ 目標達成率・連続日数\n` +
     `「体重 55.5」→ 体重を記録\n` +
     `「ヘルプ」→ このガイド\n\n` +

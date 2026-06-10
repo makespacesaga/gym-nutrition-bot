@@ -11,9 +11,13 @@ interface LINEEvent {
 
 function verifySignature(body: string, signature: string): boolean {
   const secret = process.env.LINE_CHANNEL_SECRET
-  if (!secret) return false
+  if (!secret || !signature) return false
+
   const hash = crypto.createHmac('SHA256', secret).update(body).digest('base64')
-  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(signature))
+  const expected = Buffer.from(hash)
+  const actual = Buffer.from(signature)
+
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual)
 }
 
 async function dispatch(event: LINEEvent): Promise<void> {
@@ -49,7 +53,10 @@ export const handler = async (event: { httpMethod: string; body: string | null; 
   }
 
   const body      = event.body ?? ''
-  const signature = event.headers['x-line-signature'] ?? ''
+  const signature =
+    event.headers['x-line-signature'] ??
+    event.headers['X-Line-Signature'] ??
+    ''
 
   if (!verifySignature(body, signature)) {
     console.error('Invalid LINE signature')
