@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Flame, Scale, MessageSquare, Send, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Flame, Scale, MessageSquare, Send, CircleCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 interface LineProfile {
@@ -199,7 +199,7 @@ export default function ClientDetailPage() {
         <div className="flex items-center justify-between mt-2">
           {sentOk && (
             <span className="flex items-center gap-1 text-xs text-green-500">
-              <CheckCircle size={13} /> 送信しました！
+              <CircleCheck size={13} /> 送信しました！
             </span>
           )}
           {!sentOk && <span />}
