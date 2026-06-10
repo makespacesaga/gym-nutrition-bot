@@ -1,7 +1,7 @@
 import {
   getOrCreateProfile, updateProfile, saveMealRecord,
   getTodayMeals, getStreak, saveWeight, saveWater, getTodayWater,
-  getAllCustomers, findCustomerByNickname, saveTrainerFeedback,
+  getAllCustomers, getAllTrainers, findCustomerByNickname, saveTrainerFeedback,
 } from './db'
 import { replyMessage, pushMessage, getMessageContent } from './lineApi'
 import { analyzeFoodPhoto } from './claudeApi'
@@ -46,6 +46,26 @@ function welcomeComplete(nickname: string) {
     `「ヘルプ」→ 使い方ガイド\n\n` +
     `では、最初の食事の写真を送ってみてください！`
   )
+}
+
+// ─── スタッフへ通知 ───────────────────────────────────
+
+async function notifyTrainers(profile: any, mealType: string, analysis: any) {
+  const trainers = await getAllTrainers()
+  if (trainers.length === 0) return
+
+  const mealLabel: Record<string, string> = { breakfast: '朝食', lunch: '昼食', dinner: '夕食', snack: '間食' }
+  const label = mealLabel[mealType] ?? mealType
+  const msg = text(
+    `📋 食事記録の通知\n\n` +
+    `👤 ${profile.nickname}さんが${label}を記録しました\n` +
+    `🔥 ${analysis.totals.calories}kcal（P:${analysis.totals.protein}g F:${analysis.totals.fat}g C:${analysis.totals.carbs}g）\n\n` +
+    `フィードバックは：@${profile.nickname}｜メッセージ`
+  )
+
+  for (const trainer of trainers) {
+    await pushMessage(trainer.line_user_id, [msg])
+  }
 }
 
 // ─── フォロー ─────────────────────────────────────────
@@ -147,6 +167,29 @@ async function handleOnboarding(profile: any, t: string, replyToken: string, use
 // ─── お客様コマンド ───────────────────────────────────
 
 async function handleCustomer(profile: any, t: string, replyToken: string, userId: string) {
+  // スタッフ登録コマンド
+  const staffMatch = t.match(/^スタッフ登録[：:\s　]*(.+)/)
+  if (staffMatch) {
+    const inputCode = staffMatch[1].trim()
+    const staffCode = process.env.STAFF_JOIN_CODE
+    if (staffCode && inputCode === staffCode) {
+      await updateProfile(userId, { role: 'trainer' })
+      await replyMessage(replyToken, [
+        text(
+          `✅ ${profile.nickname}さん、スタッフ登録が完了しました！\n\n` +
+          `🌸 トレーナーモードで使えるコマンド：\n\n` +
+          `📋「顧客一覧」→ お客様全員を表示\n` +
+          `👤「@名前」→ お客様の今日の状況\n` +
+          `💬「@名前｜メッセージ」→ フィードバック送信\n\n` +
+          `「ヘルプ」でいつでも確認できます。`
+        ),
+      ])
+    } else {
+      await replyMessage(replyToken, [text('スタッフ登録コードが違います。正しいコードを入力してください。')])
+    }
+    return
+  }
+
   const weightMatch = t.match(/^体重[：:\s　]*(\d+\.?\d*)/)
   if (weightMatch) {
     const w = parseFloat(weightMatch[1])
@@ -357,6 +400,9 @@ export async function handlePostback(userId: string, data: string, replyToken: s
       await replyMessage(replyToken, [
         text(`✅ ${mealLabel[mealType] ?? mealType}を記録しました！\n🔥 ${streak}日連続記録中！\n\n「今日」で今日の記録を確認できます。`),
       ])
+
+      // スタッフへ通知（バックグラウンド）
+      notifyTrainers(profile, mealType, analysis).catch(e => console.error('trainer notify error:', e))
       break
     }
 

@@ -137,6 +137,14 @@ export async function saveWeight(lineUserId: string, weightKg: number) {
   await updateProfile(lineUserId, { current_weight: weightKg })
 }
 
+export async function getAllTrainers(): Promise<LineProfile[]> {
+  const { data } = await supabase
+    .from('line_profiles')
+    .select('*')
+    .eq('role', 'trainer')
+  return (data ?? []) as LineProfile[]
+}
+
 export async function getAllCustomers(): Promise<LineProfile[]> {
   const { data } = await supabase
     .from('line_profiles')
