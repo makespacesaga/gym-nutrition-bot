@@ -21,16 +21,30 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
+create or replace function public.is_trainer()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where user_id = auth.uid()
+      and role = 'trainer'
+  );
+$$;
+
+revoke all on function public.is_trainer() from public;
+grant execute on function public.is_trainer() to authenticated;
+
 drop policy if exists profiles_select on public.profiles;
 create policy profiles_select on public.profiles
   for select to authenticated
   using (
     auth.uid() = user_id
-    or exists (
-      select 1
-      from public.profiles p
-      where p.user_id = auth.uid() and p.role = 'trainer'
-    )
+    or public.is_trainer()
   );
 
 drop policy if exists profiles_update on public.profiles;
