@@ -29,16 +29,14 @@ export default function AuthPage() {
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth`,
+            data: {
+              full_name: fullName,
+              role,
+            },
           },
         })
         if (error) throw error
         if (data.user) {
-          const { error: profileError } = await supabase.from('profiles').insert({
-            user_id: data.user.id,
-            role,
-            full_name: fullName,
-          })
-          if (profileError) throw profileError
           setMessage('登録完了しました。メールを確認してアカウントを有効化してください。')
         }
       }
